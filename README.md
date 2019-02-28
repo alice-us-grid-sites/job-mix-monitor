@@ -1,13 +1,15 @@
 ### Job Mix Monitor
 
 **Purpose:**
-Monitor the mix of jobs (id by user) run one or more identified grid sites, tabulated average usage if _rss_ and _vmem_.
+Monitor the mix of jobs types(_sim_, _train_, _reco_, _other_) running on one or more identified grid sites, tabulate average usage for _rss_ and _vmem_.
 
 #### Implementation
 
 Simple MLclient code (bin/JobMixClient.java) registers with sites and queries a specific set of information.  That information is periodically updated, organized and written to a _tmp_ file. Once sufficient data is obtain (e.g. results from every cluster requested or timeout period), the _tmp_ file is moved to a target file for additional processing and upload to local monitoring apparatus (e.g. _grafana_).
 
 Additional processing is done via python script (scripts/eval_jobmix.py) to evaluate sums and averages for upload to local monitor.
+
+**For site specific prep, build, & run see:** _ornl_env.sh_ and _hpcs_env.sh_ 
 
 #### Prepare
 
