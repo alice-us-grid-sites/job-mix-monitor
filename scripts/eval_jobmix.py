@@ -111,11 +111,13 @@ class jobmix:
         arss = '0.0'
         avmem = '0.0'
         apercent = '0.0'
+        atot = '0'
         if adict['count'] > 0:
             arss  = "%.2f" % (adict['rss']/adict['count'])
             avmem = "%.2f" % (adict['virtualmem']/adict['count'])
             apercent = "%.1f" % (100.0*(adict['count']/numjobs))
-        return arss, avmem, apercent
+            atot = "%.0f" % (adict['count'])
+        return arss, avmem, apercent, atot
 
 #-----------------------------------
     def process_data(self):
@@ -131,12 +133,13 @@ class jobmix:
             svmem+= self.mydict[user]['virtualmem']
         ave_rss = "%.2f" % ((srss)/numjobs)
         ave_vmem = "%.2f" % ((svmem)/numjobs)
-        sim_rss, sim_vmem, sim = self.process_dict(self.mydict['aliprod'],numjobs)
-        train_rss, train_vmem, train = self.process_dict(self.mydict['alitrain'],numjobs)
-        daq_rss, daq_vmem, daq = self.process_dict(self.mydict['alidaq'],numjobs)
-        other_rss, other_vmem, other = self.process_dict(self.mydict['users'],numjobs)
+        sim_rss, sim_vmem, sim, simtot = self.process_dict(self.mydict['aliprod'],numjobs)
+        train_rss, train_vmem, train, traintot = self.process_dict(self.mydict['alitrain'],numjobs)
+        daq_rss, daq_vmem, daq, daqtot = self.process_dict(self.mydict['alidaq'],numjobs)
+        other_rss, other_vmem, other, othertot = self.process_dict(self.mydict['users'],numjobs)
 
 # --- print the results then zero the containers
+        self.proc_c.log("jobtot, sim=%s train=%s daq=%s other=%s" % (simtot,traintot,daqtot,othertot), 0)
         self.proc_c.log("jobmix, sim=%s train=%s daq=%s other=%s" % (sim,train,daq,other), 0)
         self.proc_c.log("jobrss, sim_rss=%s train_rss=%s daq_rss=%s other_rss=%s all_rss=%s" % (sim_rss,train_rss,daq_rss,other_rss,ave_rss),0 )
         self.proc_c.log("jobvmem, sim_vmem=%s train_vmem=%s daq_vmem=%s other_vmem=%s all_vmem=%s" % (sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
