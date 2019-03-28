@@ -15,15 +15,20 @@ Code which takes MonaLisa client output on cluster use by job type (username) an
 
 Code output:
 
+alice nsim=40,ntrain=906,ndaq=0,nother=132,nall=1078,psim=3.7,ptrain=84.0,pdaq=0.0,pother=12.2,sim_rss=0.47,train_rss=1.06,daq_rss=0.0,other_rss=1.26,all_rss=1.06,sim_vmem=1.08,train_vmem=2.19,daq_vmem=0.0,other_vmem=2.53,all_vmem=2.19
+
+
+(old output format:
     jobmix, sim=12.1 train=74.8 other=13.1
     jobrss, sim_rss=0.73 train_rss=0.72 other_rss=0.50 all_rss=0.69
     jobvmem, sim_vmem=1.71 train_vmem=1.79 other_vmem=1.20 all_vmem=1.70
 
 Where jobmix is in '%',  jobrss in GB, jobvmem in GB
+)
 
 Code is run:
 
-    python jobmix.py -i filename -c cluster
+    python eval_jobmix.py -i filename [-c cluster]
 
         takes a '-v' option for debugging only
         -c 'LBL' or 'HPCS' or
@@ -137,12 +142,27 @@ class jobmix:
         train_rss, train_vmem, train, traintot = self.process_dict(self.mydict['alitrain'],numjobs)
         daq_rss, daq_vmem, daq, daqtot = self.process_dict(self.mydict['alidaq'],numjobs)
         other_rss, other_vmem, other, othertot = self.process_dict(self.mydict['users'],numjobs)
+        atot = "%.0f" %  (numjobs)
 
 # --- print the results then zero the containers
-        self.proc_c.log("jobtot, sim=%s train=%s daq=%s other=%s" % (simtot,traintot,daqtot,othertot), 0)
-        self.proc_c.log("jobmix, sim=%s train=%s daq=%s other=%s" % (sim,train,daq,other), 0)
-        self.proc_c.log("jobrss, sim_rss=%s train_rss=%s daq_rss=%s other_rss=%s all_rss=%s" % (sim_rss,train_rss,daq_rss,other_rss,ave_rss),0 )
-        self.proc_c.log("jobvmem, sim_vmem=%s train_vmem=%s daq_vmem=%s other_vmem=%s all_vmem=%s" % (sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
+#
+# -- old format
+#
+#        self.proc_c.log("jobtot, sim=%s train=%s daq=%s other=%s" % (simtot,traintot,daqtot,othertot), 0)
+#        self.proc_c.log("jobmix, sim=%s train=%s daq=%s other=%s" % (sim,train,daq,other), 0)
+#        self.proc_c.log("jobrss, sim_rss=%s train_rss=%s daq_rss=%s other_rss=%s all_rss=%s" % (sim_rss,train_rss,daq_rss,other_rss,ave_rss),0 )
+#        self.proc_c.log("jobvmem, sim_vmem=%s train_vmem=%s daq_vmem=%s other_vmem=%s all_vmem=%s" % (sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
+
+#
+# -- new one line format
+#
+        self.proc_c.log("alice nsim=%s,ntrain=%s,ndaq=%s,nother=%s,nall=%s,psim=%s,ptrain=%s,pdaq=%s,pother=%s,sim_rss=%s,train_rss=%s,daq_rss=%s,other_rss=%s,all_rss=%s,sim_vmem=%s,train_vmem=%s,daq_vmem=%s,other_vmem=%s,all_vmem=%s" 
+                % (simtot,traintot,daqtot,othertot,atot,
+                    sim,train,daq,other,
+                    sim_rss,train_rss,daq_rss,other_rss,ave_rss,
+                    sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
+
+
         self._zerodata()
 
 #-----------------------------------
