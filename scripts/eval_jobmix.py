@@ -43,6 +43,7 @@ if sys.version[0:3] < '2.6':
 
 import math, os, pprint, re, shlex, shutil, socket, stat, time
 from shutil import copyfile
+from datetime import datetime
 from signal import alarm, signal, SIGALRM, SIGKILL, SIGTERM
 from subprocess import Popen, PIPE, STDOUT
 import argparse
@@ -91,6 +92,17 @@ class jobmix:
         for key in self.thekeys:
             adict[key]+=data[key]
 
+    def save_badpeople(self, data, uname):
+	if data['count'] > 0.:
+	    vmem=data['virtualmem']/data['count']
+	    if vmem > 6.0:
+		fname= uname.join(["/tmp/",".dat"])
+		fp = open(fname,"a+")
+		json.dump(data,fp)
+		date_time=(datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+		endstr=date_time.join([" ","\n"])
+		fp.write(endstr)
+
 #-----------------------------------
     def store_data(self, rdata):
         if not self.checkData(rdata):
@@ -98,6 +110,8 @@ class jobmix:
         data = {key:float(rdata[key]) for key in self.thekeys}
         data['rss']=data['rss']/(1024.*1024.)
         data['virtualmem']=data['virtualmem']/(1024.*1024.)
+	self.save_badpeople(data,rdata['Node'])
+	    
         self.proc_c.log("Filled values %.4f and %.4f and %.4f" % (data['rss'], data['virtualmem'], data['count']), 1)
 
         done=False
