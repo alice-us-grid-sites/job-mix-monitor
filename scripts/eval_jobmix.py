@@ -57,6 +57,7 @@ INPUTFILE = 'PUNT' # used to default to /dev/stdin, but removed that option.  No
 FARMKEY = 'Farm'
 OURKEYS = ['count','rss','virtualmem','workdir_size']
 OURUSERS = ['aliprod','alitrain','alidaq','users']
+MAX_AVMEM=6.0
 
 #----------------------------------------
 class jobmix:
@@ -65,6 +66,7 @@ class jobmix:
     def __init__(self, args):
         self.inputfile=args.input_file
         self.cluster = args.cluster
+        self.maxavmem=args.maxavmem
         self.thekeys = OURKEYS
         self.theusers = OURUSERS
         self.mydict = {}
@@ -92,16 +94,20 @@ class jobmix:
         for key in self.thekeys:
             adict[key]+=data[key]
 
+#---------------------------------------------
     def save_badpeople(self, data, uname):
-	if data['count'] > 0.:
-	    vmem=data['virtualmem']/data['count']
-	    if vmem > 6.0:
-		fname= uname.join(["/tmp/",".dat"])
-		fp = open(fname,"a+")
-		json.dump(data,fp)
-		date_time=(datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
-		endstr=date_time.join([" ","\n"])
-		fp.write(endstr)
+        
+        self.proc_c.log("will test against %2.f" % (self.maxavmem), 1)
+
+        if data['count'] > 0.:
+            vmem=data['virtualmem']/data['count']
+            if vmem > self.maxavmem:
+                fname= uname.join(["/tmp/",".dat"])
+                fp = open(fname,"a+")
+                json.dump(data,fp)
+                date_time=(datetime.now()).strftime("%m-%d-%Y %H:%M:%S")
+                endstr=date_time.join([" ","\n"])
+                fp.write(endstr)
 
 #-----------------------------------
     def store_data(self, rdata):
@@ -110,8 +116,8 @@ class jobmix:
         data = {key:float(rdata[key]) for key in self.thekeys}
         data['rss']=data['rss']/(1024.*1024.)
         data['virtualmem']=data['virtualmem']/(1024.*1024.)
-	self.save_badpeople(data,rdata['Node'])
-	    
+        self.save_badpeople(data,rdata['Node'])
+
         self.proc_c.log("Filled values %.4f and %.4f and %.4f" % (data['rss'], data['virtualmem'], data['count']), 1)
 
         done=False
@@ -204,7 +210,10 @@ def main():
     p.add_argument("-v", "--verbose", action="count", dest="verbosity", default=0, help="be verbose about actions, repeatable")
     p.add_argument("-i",dest="input_file",default=INPUTFILE,help="input text file ... default is punt")
     p.add_argument("-c",dest="cluster",default=FARMKEY,help="cluster name to select.  default is all")
+    p.add_argument("-x",dest="maxavmem",type=float, default=MAX_AVMEM,help="max ave vmem, over which user info is written to /tmp/<username.dat")
+
     args = p.parse_args()
+
 
     if "PUNT" in args.input_file:
         print "No input file given ... exiting"
