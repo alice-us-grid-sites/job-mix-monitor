@@ -69,7 +69,7 @@ public class JobMixClient {
 
     int c_check=0;
     for (int i=0; i<clusters.length; i++){
-            jClient.registerPredicate(new monPredicate(clusters[i], "Site_UserJobs_Summary", "*", -1, -1, new String[]{"count","rss","virtualmem","workdir_size"}, null));
+            jClient.registerPredicate(new monPredicate(clusters[i], "Site_UserJobs_Summary", "*", -1, -1, new String[]{"count","cpu_time","run_time","rss","virtualmem","workdir_size"}, null));
             c_check+=1;
             //System.out.println("Adding new predicate for "+clusters[i]);
     }

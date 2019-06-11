@@ -4,27 +4,17 @@
 
 Code which takes MonaLisa client output on cluster use by job type (username) and sorts data for input to local monitor.  
 
-{"Farm":"HPCS","Node":"skar","rss":"10512596.000000","virtualmem":"18711128.000000","count":"5.000000","workdir_size":"493.746094"}
-{"Farm":"HPCS","Node":"aborisso","rss":"0.000000","virtualmem":"0.000000","count":"1.000000","workdir_size":"0.085938"}
-{"Farm":"HPCS","Node":"junlee","rss":"1704796.000000","virtualmem":"4535596.000000","count":"4.000000","workdir_size":"67.082031"}
-{"Farm":"HPCS","Node":"sjaelani","rss":"2438736.000000","virtualmem":"6153948.000000","count":"6.000000","workdir_size":"295.398438"}
-{"Farm":"LBL","Node":"alidaq","rss":"0.000000","virtualmem":"0.000000","count":"1.000000","workdir_size":"1122.035156"}
-{"Farm":"LBL","Node":"fkellere","rss":"1220420.000000","virtualmem":"2582992.000000","count":"2.000000","workdir_size":"199.242188"}
-{"Farm":"LBL","Node":"vvislavi","rss":"16207068.000000","virtualmem":"34908696.000000","count":"23.000000","workdir_size":"95.609375"}
-{"Farm":"LBL","Node":"aliprod","rss":"1292168624.000000","virtualmem":"2690549284.000000","count":"1347.000000","workdir_size":"1700731.582031"}
+{"Farm":"LBL_HPCS","Node":"sparmar","rss":"540160.000000","virtualmem":"2515380.000000","cpu_time":"2.000000","run_time":"139.000000","count":"8.000000","workdir_size":"1.898438"}
+{"Farm":"LBL_HPCS","Node":"yozhou","rss":"4190052.000000","virtualmem":"16899908.000000","cpu_time":"0.000000","run_time":"1752.000000","count":"15.000000","workdir_size":"187.578125"}
+{"Farm":"LBL_HPCS","Node":"aliprod","rss":"1214092232.000000","virtualmem":"2746202196.000000","cpu_time":"135348.000000","run_time":"156530.000000","count":"1329.000000","workdir_size":"1868899.160156"}
+{"Farm":"LBL_HPCS","Node":"ymao","rss":"23633024.000000","virtualmem":"30936420.000000","cpu_time":"445.000000","run_time":"516.000000","count":"4.000000","workdir_size":"20.808594"}
+
 
 Code output:
 
-alice nsim=40,ntrain=906,ndaq=0,nother=132,nall=1078,psim=3.7,ptrain=84.0,pdaq=0.0,pother=12.2,sim_rss=0.47,train_rss=1.06,daq_rss=0.0,other_rss=1.26,all_rss=1.06,sim_vmem=1.08,train_vmem=2.19,daq_vmem=0.0,other_vmem=2.53,all_vmem=2.19
+alice nsim=1329.0,ntrain=4.0,ndaq=0,nother=27.0,nall=1360,psim=97.7,ptrain=0.3,pdaq=0.0,pother=2.0,sim_rss=0.87,train_rss=0.50,daq_rss=0.0,other_rss=1.00,all_rss=0.87,sim_vmem=1.97,train_vmem=1.44,daq_vmem=0.0,other_vmem=1.78,all_vmem=1.97,sim_eff=86.47,train_eff=2.01,daq_eff=0.00,other_eff=18.57,all_eff=84.87
 
 
-(old output format:
-    jobmix, sim=12.1 train=74.8 other=13.1
-    jobrss, sim_rss=0.73 train_rss=0.72 other_rss=0.50 all_rss=0.69
-    jobvmem, sim_vmem=1.71 train_vmem=1.79 other_vmem=1.20 all_vmem=1.70
-
-Where jobmix is in '%',  jobrss in GB, jobvmem in GB
-)
 
 Code is run:
 
@@ -55,7 +45,7 @@ import json
 
 INPUTFILE = 'PUNT' # used to default to /dev/stdin, but removed that option.  Now no default... 
 FARMKEY = 'Farm'
-OURKEYS = ['count','rss','virtualmem','workdir_size']
+OURKEYS = ['count','rss','cpu_time','run_time','virtualmem','workdir_size']
 OURUSERS = ['aliprod','alitrain','alidaq','users']
 MAX_AVMEM=6.0
 
@@ -70,6 +60,7 @@ class jobmix:
         self.thekeys = OURKEYS
         self.theusers = OURUSERS
         self.mydict = {}
+        self.njobs = 0.0
         for user in self.theusers:
             self.mydict[user]={}
         self._zerodata()
@@ -80,23 +71,25 @@ class jobmix:
         for user in self.theusers:
             for key in self.thekeys:
                 self.mydict[user][key] = 0.0
+        self.njobs = 0.0
 
 #-----------------------------------
     def checkData(self,rdata):
+        # fill in any missing keys - support new keys added later
         for key in self.thekeys:
             if key not in rdata:
-                self.proc_c.log("Missing key %s" % (key),1)
-                return False
-        return True
+                rdata[key]=0.0
+        return rdata
 
 #-----------------------------------
     def filldata(self,adict, data):
+        self.njobs += data['count']
         for key in self.thekeys:
             adict[key]+=data[key]
 
 #---------------------------------------------
     def save_badpeople(self, data, uname):
-        
+        # write out a /tmp/<username>.dat file containing timestamp and amount of memory
         self.proc_c.log("will test against %2.f" % (self.maxavmem), 1)
 
         if data['count'] > 0.:
@@ -111,15 +104,17 @@ class jobmix:
 
 #-----------------------------------
     def store_data(self, rdata):
-        if not self.checkData(rdata):
-            return
-        data = {key:float(rdata[key]) for key in self.thekeys}
+#       Fill in missing keys so code runs smoothly
+        xdata = self.checkData(rdata)
+
+        data = {key:float(xdata[key]) for key in self.thekeys}
         data['rss']=data['rss']/(1024.*1024.)
         data['virtualmem']=data['virtualmem']/(1024.*1024.)
-        self.save_badpeople(data,rdata['Node'])
+        self.save_badpeople(data,xdata['Node'])
 
         self.proc_c.log("Filled values %.4f and %.4f and %.4f" % (data['rss'], data['virtualmem'], data['count']), 1)
 
+# data is either one of the Node keynames (aliprod, alitrain, or alidaq) or a general user.  Try Nodes, if not, assume it's added to 'users'.
         done=False
         for key in self.theusers:
             if rdata['Node'] == key:
@@ -128,65 +123,70 @@ class jobmix:
         if not done:
             self.filldata(self.mydict['users'],data)
 
-        self.proc_c.log("Filled values for user=%s " % (rdata['Node']), 1)
+        self.proc_c.log("Filled values for user=%s " % (xdata['Node']), 1)
 
 
 #-----------------------------------
-    def process_dict(self, adict, numjobs):
-        arss = '0.0'
-        avmem = '0.0'
-        apercent = '0.0'
-        atot = '0'
+    def process_dict(self, adict):
+        ''' Calculate a set of averages & the cpu eff (cputime/runtime), & return the set'''
+        arss = 0.0
+        avmem = 0.0
+        apercent = 0.0
+        atot = 0
+        aeff = 0.0
         if adict['count'] > 0:
-            arss  = "%.2f" % (adict['rss']/adict['count'])
-            avmem = "%.2f" % (adict['virtualmem']/adict['count'])
-            apercent = "%.1f" % (100.0*(adict['count']/numjobs))
-            atot = "%.0f" % (adict['count'])
-        return arss, avmem, apercent, atot
+            arss  = (adict['rss']/adict['count'])
+            avmem = (adict['virtualmem']/adict['count'])
+            apercent = (100.0*(adict['count']/self.njobs))
+            atot = (adict['count'])
+            if adict['run_time'] > 0:
+                aeff = (100.0*(adict['cpu_time']/adict['run_time']))
+        return arss, avmem, apercent, atot, aeff
 
 #-----------------------------------
     def process_data(self):
-        numjobs = 0.0
-        for user in self.theusers:
-            numjobs += self.mydict[user]['count']
-        if numjobs == 0:
+        if self.njobs == 0: 
             return
-        srss =0.0
-        svmem = 0.0
+
+        arss  = 0.0
+        avmem = 0.0
         for user in self.theusers:
-            srss += self.mydict[user]['rss']
-            svmem+= self.mydict[user]['virtualmem']
-        ave_rss = "%.2f" % ((srss)/numjobs)
-        ave_vmem = "%.2f" % ((svmem)/numjobs)
-        sim_rss, sim_vmem, sim, simtot = self.process_dict(self.mydict['aliprod'],numjobs)
-        train_rss, train_vmem, train, traintot = self.process_dict(self.mydict['alitrain'],numjobs)
-        daq_rss, daq_vmem, daq, daqtot = self.process_dict(self.mydict['alidaq'],numjobs)
-        other_rss, other_vmem, other, othertot = self.process_dict(self.mydict['users'],numjobs)
-        atot = "%.0f" %  (numjobs)
+            arss  += self.mydict[user]['rss']
+            avmem += self.mydict[user]['virtualmem']
+        arss  /= self.njobs
+        avmem /= self.njobs
 
-# --- print the results then zero the containers
-#
-# -- old format
-#
-#        self.proc_c.log("jobtot, sim=%s train=%s daq=%s other=%s" % (simtot,traintot,daqtot,othertot), 0)
-#        self.proc_c.log("jobmix, sim=%s train=%s daq=%s other=%s" % (sim,train,daq,other), 0)
-#        self.proc_c.log("jobrss, sim_rss=%s train_rss=%s daq_rss=%s other_rss=%s all_rss=%s" % (sim_rss,train_rss,daq_rss,other_rss,ave_rss),0 )
-#        self.proc_c.log("jobvmem, sim_vmem=%s train_vmem=%s daq_vmem=%s other_vmem=%s all_vmem=%s" % (sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
+        sim_rss, sim_vmem, sim, simtot, sim_eff = self.process_dict(self.mydict['aliprod'])
+        train_rss, train_vmem, train, traintot, train_eff = self.process_dict(self.mydict['alitrain'])
+        daq_rss, daq_vmem, daq, daqtot, daq_eff = self.process_dict(self.mydict['alidaq'])
+        other_rss, other_vmem, other, othertot, other_eff = self.process_dict(self.mydict['users'])
 
+        aeff = ((simtot*sim_eff+traintot*train_eff+daqtot*daq_eff+othertot*other_eff)/self.njobs)
 #
-# -- new one line format
+# -- one line format for grafana consumption
 #
-        self.proc_c.log("alice nsim=%s,ntrain=%s,ndaq=%s,nother=%s,nall=%s,psim=%s,ptrain=%s,pdaq=%s,pother=%s,sim_rss=%s,train_rss=%s,daq_rss=%s,other_rss=%s,all_rss=%s,sim_vmem=%s,train_vmem=%s,daq_vmem=%s,other_vmem=%s,all_vmem=%s" 
-                % (simtot,traintot,daqtot,othertot,atot,
+        self.proc_c.log("alice \
+nsim=%d,ntrain=%d,ndaq=%d,nother=%d,nall=%d,\
+psim=%.1f,ptrain=%.1f,pdaq=%.1f,pother=%.1f,\
+sim_rss=%.2f,train_rss=%.2f,daq_rss=%.2f,other_rss=%.2f,all_rss=%.2f,\
+sim_vmem=%.2f,train_vmem=%.2f,daq_vmem=%.2f,other_vmem=%.2f,all_vmem=%.2f,\
+sim_eff=%.2f,train_eff=%.2f,daq_eff=%.2f,other_eff=%.2f,all_eff=%.2f" 
+
+                % (simtot,traintot,daqtot,othertot,self.njobs,
                     sim,train,daq,other,
-                    sim_rss,train_rss,daq_rss,other_rss,ave_rss,
-                    sim_vmem,train_vmem,daq_vmem,other_vmem,ave_vmem), 0)
-
+                    sim_rss,train_rss,daq_rss,other_rss,arss,
+                    sim_vmem,train_vmem,daq_vmem,other_vmem,avmem,
+                    sim_eff,train_eff,daq_eff,other_eff,aeff), 0)
 
         self._zerodata()
 
 #-----------------------------------
     def go(self):
+        ''' Job reads the input file line-by-line until end of file, as each pass of the client replaces input file.
+        Each line contains the records for 1 username, 
+        Each line is stored in one of the predefined dicts: aliprod, alitrain, alidaq, users. 
+        At end of file, process the data
+        Process = do some simple math, write a high memory user file for tracking, write a one line output for feeding grafana'''
 
         rdata = {}
         with open(self.inputfile, 'r') as input:
