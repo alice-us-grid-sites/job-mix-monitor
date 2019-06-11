@@ -12,7 +12,7 @@ export PATH=$JAVA_HOME/bin:$PATH
 
 #
 # 1) get jar files locally if needed until Costin can fix the ML repo used in the update scripts
-# cp ~/mon/MLclient_ornl/lib/*.jar lib/
+# cp ~/github/job-mix-monitor/lib/*.jar lib/
 #
 # 2) build system if needed
 # cd bin; ./recompile.sh ; cd ../
